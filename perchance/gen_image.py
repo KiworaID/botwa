@@ -1,6 +1,12 @@
-import asyncio
 import sys
 import os
+
+# Add current directory to path to ensure 'perchance' module is found
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
+
+import asyncio
 import argparse
 from perchance import ImageGenerator
 
