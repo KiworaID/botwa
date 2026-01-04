@@ -26,13 +26,14 @@ def generate_image(prompt, out_path, shape):
         co.set_local_port(port)
         co.set_user_data_path(user_data_dir) # Complete isolation
         
-        co.headless(False) 
-        co.set_argument('--start-maximized') 
+        co.headless(True) 
         co.set_argument('--no-sandbox')
-        co.set_argument('--mute-audio')
+        co.set_argument('--disable-dev-shm-usage')
         co.set_argument('--disable-gpu')
-        co.set_argument('--disable-extensions') # Lighter
-        co.set_argument('--disable-plugins') # Lighter
+        co.set_argument('--mute-audio')
+        co.set_argument('--disable-extensions') 
+        co.set_argument('--disable-plugins') 
+        co.set_argument('--start-maximized') 
         
         # Block common ad/tracker domains to speed up loading
         # co.set_argument('--host-rules="MAP *google-analytics.com 127.0.0.1, MAP *doubleclick.net 127.0.0.1"') 
