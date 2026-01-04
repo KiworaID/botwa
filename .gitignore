@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+perchance/venv/
+perchance/__pycache__/
+
+# Authentication & Sensitive Data
+baileys_auth_info/
+.env
+
+# Database
+*.db
+*.db-journal
+
+# Temporary files
+temp/
+*.mp3
+*.png
+*.jpg
+*.jpeg
+
+# Logs
+logs/
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db

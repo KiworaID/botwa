@@ -1,0 +1,20 @@
+[
+    {
+        "index": 1,
+        "img": "https://img.freepik.com/free-vector/cute-cat-cartoon-illustration_138676-3238.jpg",
+        "jawaban": "Kucing",
+        "clue": "Hewan peliharaan populer"
+    },
+    {
+        "index": 2,
+        "img": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/e6/Pasar_Beringharjo.jpg/1200px-Pasar_Beringharjo.jpg",
+        "jawaban": "Pasar",
+        "clue": "Tempat jual beli tradisional"
+    },
+    {
+        "index": 3,
+        "img": "https://upload.wikimedia.org/wikipedia/commons/9/92/Youth-soccer-indiana.jpg",
+        "jawaban": "Sepak Bola",
+        "clue": "Olahraga paling populer"
+    }
+]

@@ -1,0 +1,75 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Config {
+  id             Int     @id @default(1)
+  bot_name       String  @default("MyBot")
+  prefix         String  @default("/")
+  global_ai_mode Boolean @default(false)
+  ai_provider    String  @default("gemini") // gemini or groq
+  gemini_model   String  @default("google/gemini-3-flash-preview")
+  groq_model     String  @default("llama-3.3-70b-versatile")
+  gemini_api_key String?
+  groq_api_key   String?
+  system_prompt  String? @db.Text
+  enable_pm      Boolean @default(true)
+  enable_group   Boolean @default(true)
+  enable_newsletter Boolean @default(false)
+  enable_games   Boolean @default(true)
+}
+
+model Owner {
+  id    Int    @id @default(autoincrement())
+  phone String @unique
+  name  String?
+}
+
+model Admin {
+  id    Int    @id @default(autoincrement())
+  phone String @unique
+  name  String?
+}
+
+model Group {
+  id          Int     @id @default(autoincrement())
+  jid         String  @unique
+  mute        Boolean @default(false)
+  antilink    Boolean @default(false)
+  welcome_msg Boolean @default(true)
+  ai_active   Boolean @default(false)
+  games_active Boolean @default(false)
+}
+
+model Chat {
+  id        Int     @id @default(autoincrement())
+  jid       String  @unique
+  allow_bot Boolean @default(true)
+  ai_active Boolean @default(false)
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  phone     String   @unique
+  name      String?
+  coins     Int      @default(0)
+  xp        Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MenfessSession {
+  id        String   @id @default(uuid())
+  senderId  String   // Phone number of sender
+  targetId  String   // Phone number of target
+  status    String   @default("active") // active, closed
+  createdAt DateTime @default(now())
+}

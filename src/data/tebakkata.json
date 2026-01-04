@@ -1,0 +1,27 @@
+[
+    {
+        "index": 1,
+        "soal": "Hewan yang memiliki belalai",
+        "jawaban": "Gajah"
+    },
+    {
+        "index": 2,
+        "soal": "Ibukota Indonesia (sebelum IKN)",
+        "jawaban": "Jakarta"
+    },
+    {
+        "index": 3,
+        "soal": "Buah yang berduri dan baunya menyengat",
+        "jawaban": "Durian"
+    },
+    {
+        "index": 4,
+        "soal": "Kendaraan roda dua bermesin",
+        "jawaban": "Motor"
+    },
+    {
+        "index": 5,
+        "soal": "Tempat mendarat pesawat",
+        "jawaban": "Bandara"
+    }
+]
