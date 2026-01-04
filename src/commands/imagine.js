@@ -40,7 +40,7 @@ export const handleImagine = async (command, sock, msg, args, from, sender) => {
     prompt = prompt.replace(/[*\"_#]/g, '').trim();
 
     // Notify user that we are working on it
-    const loadingMsg = await sock.sendMessage(from, { text: '🎨 *Generating image (Perchance)...* please wait.\n_This may take a minute as it uses Playwright._' }, { quoted: msg });
+    const loadingMsg = await sock.sendMessage(from, { text: '🎨 *Generating image (Perchance)...* please wait.\n_Processing with high-speed automation._' }, { quoted: msg });
 
     const tempDir = path.join(process.cwd(), 'temp');
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
@@ -53,27 +53,20 @@ export const handleImagine = async (command, sock, msg, args, from, sender) => {
         ? path.join(process.cwd(), 'perchance', 'venv', 'Scripts', 'python.exe')
         : path.join(process.cwd(), 'perchance', 'venv', 'bin', 'python3');
         
-    const scriptPath = path.join(process.cwd(), 'perchance', 'gen_image.py');
+    const scriptPath = path.join(process.cwd(), 'perchance', 'gen_image_drission.py');
 
     // Use a promise to handle the exec call
     const runPython = () => new Promise((resolve, reject) => {
         // Check if venv exists
         if (!fs.existsSync(pythonPath)) {
-            return reject(new Error(`Python Virtual Environment not found at ${pythonPath}. Please run setup commands on VPS.`));
+            return reject(new Error(`Python Virtual Environment not found at ${pythonPath}. Please run setup commands.`));
         }
 
         // Escape prompt for shell
         const escapedPrompt = prompt.replace(/"/g, '\\"');
-        
-        // Use environment variables to ensure PYTHONPATH is correct
-        const env = { 
-            ...process.env, 
-            PYTHONPATH: path.join(process.cwd(), 'perchance') 
-        };
-
         const cmd = `"${pythonPath}" "${scriptPath}" --prompt "${escapedPrompt}" --out "${outPath}" --shape ${shape}`;
         
-        exec(cmd, { env }, (error, stdout, stderr) => {
+        exec(cmd, (error, stdout, stderr) => {
             if (error) {
                 console.error('Python Error:', stderr);
                 return reject(new Error(stderr || stdout || error.message));
