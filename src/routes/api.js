@@ -2,7 +2,12 @@ import express from 'express';
 import prisma from '../services/db.js';
 import { getSocket } from '../lib/baileys.js';
 
+import { leaveGroup } from '../controllers/webController.js';
+
 const router = express.Router();
+
+// Group Management
+router.post('/groups/leave', leaveGroup);
 
 import { updateConfigCache } from '../lib/config.js';
 

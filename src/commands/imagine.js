@@ -1,92 +1,94 @@
-import { exec } from 'child_process';
-import path from 'path';
-import fs from 'fs';
-import aiService from '../services/ai.js';
+import axios from 'axios';
 
 /**
- * Enhanced Image Generation Command using Perchance
- * Features:
- * - Prompt Enhancement via internal AI
- * - Aspect Ratio Control (--ar, --story, --landscape)
- * - Uses Perchance (Local Python Integration)
+ * Enhanced Image Generation Command for KiwBot using SDXL API
  */
 export const handleImagine = async (command, sock, msg, args, from, sender) => {
     if (command !== '/imagine') return;
 
-    // 1. Basic Input Validation
     if (args.length === 0) {
         return await sock.sendMessage(from, { 
-            text: '🎨 *Perchance Image Generator*\n\nUsage:\n/imagine [prompt] [flags]\n\nFlags:\n--story / --portrait (Portrait)\n--landscape (Landscape)\n\nExample:\n/imagine a cyberpunk city --landscape' 
+            text: '🎨 *KiwBot AI Image Generator*\n\nUsage:\n/imagine [prompt] [flags]\n\nFlags:\n--story / --portrait (Portrait 9:16)\n--landscape (Landscape 16:9)\n\nExample:\n/imagine a cyberpunk city --landscape' 
         });
     }
 
     const rawInput = args.join(' ');
     let prompt = rawInput;
-    let shape = 'square';
-    let ratioLabel = '1:1';
+    
+    let width = 1024;
+    let height = 1024;
+    let ratioLabel = '1:1 (Square)';
 
-    // 2. Parse Aspect Ratio Flags
     if (rawInput.includes('--story') || rawInput.includes('--portrait') || rawInput.includes('--ar 9:16')) {
-        shape = 'portrait';
-        ratioLabel = 'Portrait';
+        width = 768;
+        height = 1344;
+        ratioLabel = '9:16 (Portrait)';
         prompt = prompt.replace('--story', '').replace('--portrait', '').replace('--ar 9:16', '');
     } else if (rawInput.includes('--landscape') || rawInput.includes('--ar 16:9')) {
-        shape = 'landscape';
-        ratioLabel = 'Landscape';
+        width = 1344;
+        height = 768;
+        ratioLabel = '16:9 (Landscape)';
         prompt = prompt.replace('--landscape', '').replace('--ar 16:9', '');
     }
 
-    // Clean up prompt
     prompt = prompt.replace(/[*\"_#]/g, '').trim();
 
-    // Notify user that we are working on it
-    const loadingMsg = await sock.sendMessage(from, { text: '🎨 *Generating image (Perchance)...* please wait.\n_Processing with high-speed automation._' }, { quoted: msg });
+    // Notify user
+    const loadingMsg = await sock.sendMessage(from, { text: '🎨 *KiwBot is generating your image...* please wait.' }, { quoted: msg });
 
-    const tempDir = path.join(process.cwd(), 'temp');
-    if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
-    
-    const outPath = path.join(tempDir, `gen_${Date.now()}.png`);
-    
-    // Detect OS for Python path
-    const isWindows = process.platform === 'win32';
-    const pythonPath = isWindows 
-        ? path.join(process.cwd(), 'perchance', 'venv', 'Scripts', 'python.exe')
-        : path.join(process.cwd(), 'perchance', 'venv', 'bin', 'python3');
-        
-    const scriptPath = path.join(process.cwd(), 'perchance', 'gen_image_drission.py');
+    const apiKey = 'c9308e3c266c4d859867aa691ce92be7';
+    const apiUrl = 'https://gateway.appypie.com/getImage/v1/getSDXLImage';
 
-    // Use a promise to handle the exec call
-    const runPython = () => new Promise((resolve, reject) => {
-        // Check if venv exists
-        if (!fs.existsSync(pythonPath)) {
-            return reject(new Error(`Python Virtual Environment not found at ${pythonPath}. Please run setup commands.`));
-        }
-
-        // Escape prompt for shell
-        const escapedPrompt = prompt.replace(/"/g, '\\"');
-        const cmd = `"${pythonPath}" "${scriptPath}" --prompt "${escapedPrompt}" --out "${outPath}" --shape ${shape}`;
-        
-        exec(cmd, (error, stdout, stderr) => {
-            if (error) {
-                console.error('Python Error:', stderr);
-                return reject(new Error(stderr || stdout || error.message));
-            }
-            if (stdout.includes('SUCCESS:')) {
-                resolve(stdout.split('SUCCESS:')[1].trim());
-            } else {
-                reject(new Error(stdout || 'Unknown error from Python script'));
-            }
-        });
-    });
+    const payload = {
+        prompt: prompt,
+        negative_prompt: "Low-quality, blurry image, with any other animals. Avoid abstract or cartoonish styles, dark or gloomy atmosphere, unnecessary objects or distractions in the background, harsh lighting, and unnatural colors.",
+        width: width,
+        height: height,
+        num_steps: 20,
+        guidance_scale: 5,
+        seed: Math.floor(Math.random() * 1000000)
+    };
 
     try {
-        await runPython();
+        const response = await axios.post(apiUrl, payload, {
+            headers: {
+                'Content-Type': 'application/json',
+                'Ocp-Apim-Subscription-Key': apiKey,
+                'Cache-Control': 'no-cache'
+            },
+            timeout: 60000 // 60s timeout
+        });
 
-        // 6. Send Result
-        const buffer = fs.readFileSync(outPath);
-        const caption = `🎨 *Generated by Perchance*\n\n📝 *Prompt:* ${prompt}\n📐 *Shape:* ${ratioLabel}`;
+        // The API typically returns JSON with an imageUrl or the image data directly.
+        // Based on docs, it returns { imageUrl: "..." }
         
-        // Delete the loading message
+        let imageUrl = null;
+        if (response.data && response.data.imageUrl) {
+            imageUrl = response.data.imageUrl;
+        } else if (typeof response.data === 'string' && response.data.includes('http')) {
+             // Fallback if it returns just a string
+             try {
+                const parsed = JSON.parse(response.data);
+                imageUrl = parsed.imageUrl;
+             } catch (e) {
+                // Check if the string itself is a url
+                if (response.data.startsWith('http')) imageUrl = response.data;
+             }
+        }
+
+        if (!imageUrl) {
+            throw new Error('No image URL in response: ' + JSON.stringify(response.data));
+        }
+
+        // Send the image
+        // We can send directly via URL, but downloading ensures we have the buffer 
+        // and avoids some WhatsApp URL preview issues.
+        const imageResponse = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        const buffer = Buffer.from(imageResponse.data, 'binary');
+
+        const caption = `🎨 *Generated by KiwBot*\n\n📝 *Prompt:* ${prompt}\n📐 *Shape:* ${ratioLabel}`;
+        
+        // Delete loading message
         await sock.sendMessage(from, { delete: loadingMsg.key });
 
         await sock.sendMessage(from, { 
@@ -94,25 +96,18 @@ export const handleImagine = async (command, sock, msg, args, from, sender) => {
             caption: caption 
         }, { quoted: msg });
 
-        // Cleanup
-        if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
-
     } catch (error) {
-        console.error('Imagine Command Error:', error);
+        console.error('Imagine Command Error:', error.response ? error.response.data : error.message);
         
         let errorMessage = '❌ Failed to generate image.';
-        if (error.message.includes('Rate limit')) {
-            errorMessage = '❌ Perchance rate limit exceeded. Try again later.';
-        } else if (error.message.includes('AuthenticationError')) {
-            errorMessage = '❌ Perchance authentication failed.';
+        if (error.response && error.response.status === 401) {
+            errorMessage = '❌ API Key Invalid or Expired.';
+        } else if (error.message.includes('timeout')) {
+            errorMessage = '❌ Generation timed out.';
         } else {
-            errorMessage = `❌ Error: ${error.message.slice(0, 100)}...`;
+            errorMessage = `❌ Error: ${error.message.slice(0, 50)}...`;
         }
 
         await sock.sendMessage(from, { text: errorMessage, edit: loadingMsg.key });
-        
-        // Cleanup on error
-        if (fs.existsSync(outPath)) fs.unlinkSync(outPath);
     }
 };
-

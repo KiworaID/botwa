@@ -3,210 +3,524 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WhatsApp Bot Manager</title>
+    <title><%= config.bot_name || 'Bot Manager' %> - Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Scrollbar Styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen">
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen flex flex-col md:flex-row overflow-hidden">
 
-    <div class="container mx-auto px-4 py-8">
-        <header class="mb-8 flex justify-between items-center">
-            <h1 class="text-3xl font-bold text-gray-800">🤖 Bot Manager</h1>
-            <div id="status-badge" class="px-4 py-2 rounded-full text-white font-bold bg-gray-500">
-                Connecting...
+    <!-- Mobile Header -->
+    <header class="md:hidden bg-white shadow-sm p-4 flex justify-between items-center z-20 relative">
+        <h1 class="text-xl font-bold text-blue-600 flex items-center gap-2">
+            <i class="fa-brands fa-whatsapp text-2xl"></i> Bot Manager
+        </h1>
+        <button id="mobile-menu-btn" class="text-slate-600 focus:outline-none">
+            <i class="fas fa-bars text-2xl"></i>
+        </button>
+    </header>
+
+    <!-- Sidebar -->
+    <aside id="sidebar" class="bg-white border-r border-slate-200 w-64 flex-shrink-0 flex flex-col transition-transform transform -translate-x-full md:translate-x-0 absolute md:relative z-10 h-full">
+        <div class="p-6 border-b border-slate-100 hidden md:block">
+            <h1 class="text-2xl font-extrabold text-blue-600 flex items-center gap-2">
+                <i class="fa-brands fa-whatsapp"></i> FiveOne
+            </h1>
+            <p class="text-xs text-slate-400 mt-1">WhatsApp Automation</p>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto p-4 space-y-2">
+            <button onclick="switchTab('dashboard')" class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors bg-blue-50 text-blue-600 font-semibold">
+                <i class="fas fa-home w-5"></i> Dashboard
+            </button>
+            <button onclick="switchTab('groups')" class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i class="fas fa-users w-5"></i> Groups 
+                <span class="ml-auto bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full"><%= groups.length %></span>
+            </button>
+            <button onclick="switchTab('chats')" class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i class="fas fa-comments w-5"></i> Chats
+                <span class="ml-auto bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full"><%= chats.length %></span>
+            </button>
+            <button onclick="switchTab('settings')" class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i class="fas fa-cog w-5"></i> Settings
+            </button>
+            <button onclick="switchTab('owners')" class="nav-item w-full text-left px-4 py-3 rounded-xl flex items-center gap-3 text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                <i class="fas fa-user-shield w-5"></i> Owners
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-slate-100">
+            <div id="connection-status-mini" class="flex items-center gap-3 px-4 py-3 bg-red-50 text-red-600 rounded-xl">
+                <div class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                <span class="text-sm font-medium">Disconnected</span>
             </div>
-        </header>
+        </div>
+    </aside>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-            
-            <!-- Left Column: Status & QR -->
-            <div class="space-y-8">
-                <!-- Connection Card -->
-                <div class="bg-white p-6 rounded-lg shadow-md min-h-[300px] flex flex-col justify-center">
-                    <h2 class="text-xl font-semibold mb-4 absolute top-6">Connection</h2>
-                    
-                    <div id="loading-state" class="text-center text-gray-500">
-                        <p>Initializing bot...</p>
-                    </div>
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto h-full relative bg-slate-50 p-4 md:p-8">
+        
+        <!-- Tab: Dashboard -->
+        <div id="tab-dashboard" class="tab-content fade-in space-y-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">Overview</h2>
+                <div class="text-sm text-slate-500">
+                    <span id="current-date"></span>
+                </div>
+            </div>
 
-                    <div id="qr-container" class="flex flex-col items-center justify-center p-4 border-2 border-dashed border-gray-300 rounded-lg hidden">
-                        <div id="qrcode" class="bg-white p-2"></div>
-                        <p class="mt-4 text-gray-500 text-sm">Scan this QR with your WhatsApp</p>
-                    </div>
-
-                    <div id="user-info" class="hidden text-center">
-                        <div class="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <span class="text-3xl">✅</span>
+            <!-- Stats Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center text-xl">
+                            <i class="fas fa-users"></i>
                         </div>
-                        <p class="text-green-600 text-lg font-bold">Bot Connected!</p>
-                        <p class="text-gray-500 text-sm">Logged in as: <span id="user-jid" class="font-mono"></span></p>
-                        <form action="/api/logout" method="POST" class="mt-6">
-                            <button type="submit" class="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-full transition font-medium">Logout Bot</button>
+                        <span class="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">Total</span>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800"><%= groups.length %></h3>
+                    <p class="text-sm text-slate-500">Active Groups</p>
+                </div>
+                
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center text-xl">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <span class="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">Recorded</span>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800"><%= chats.length %></h3>
+                    <p class="text-sm text-slate-500">Private Chats</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center text-xl">
+                            <i class="fas fa-robot"></i>
+                        </div>
+                        <span class="text-xs font-medium text-slate-400 bg-slate-50 px-2 py-1 rounded">System</span>
+                    </div>
+                    <h3 class="text-3xl font-bold text-slate-800"><%= config.bot_name || 'Bot' %></h3>
+                    <p class="text-sm text-slate-500">Active Instance</p>
+                </div>
+            </div>
+
+            <!-- Connection Center -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Status & QR -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100 flex flex-col items-center justify-center min-h-[400px]">
+                    <h3 class="text-lg font-bold text-slate-800 mb-6 w-full text-left">Connection Status</h3>
+                    
+                    <!-- Loading -->
+                    <div id="loading-state" class="text-center">
+                        <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                        <p class="text-slate-500 font-medium">Connecting to WhatsApp...</p>
+                    </div>
+
+                    <!-- QR Code -->
+                    <div id="qr-container" class="hidden flex flex-col items-center animate-pulse">
+                        <div class="bg-white p-4 border-2 border-dashed border-slate-200 rounded-xl mb-4">
+                            <div id="qrcode"></div>
+                        </div>
+                        <p class="text-slate-600 font-medium">Scan with WhatsApp</p>
+                        <p class="text-slate-400 text-sm mt-1">Open WhatsApp > Linked Devices > Link a Device</p>
+                    </div>
+
+                    <!-- Connected -->
+                    <div id="user-info" class="hidden text-center">
+                        <div class="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 text-4xl shadow-sm">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <h4 class="text-2xl font-bold text-slate-800 mb-2">Connected!</h4>
+                        <p class="text-slate-500 mb-8">Logged in as <span id="user-jid" class="font-mono bg-slate-100 px-2 py-1 rounded text-slate-700"></span></p>
+                        
+                        <form action="/api/logout" method="POST">
+                            <button type="submit" class="bg-red-50 hover:bg-red-100 text-red-600 px-8 py-3 rounded-xl font-bold transition-all flex items-center gap-2 mx-auto">
+                                <i class="fas fa-power-off"></i> Logout Session
+                            </button>
                         </form>
                     </div>
                 </div>
 
-                <!-- Owners Management -->
-                <div class="bg-white p-6 rounded-lg shadow-md">
-                    <h2 class="text-xl font-semibold mb-4">Owners</h2>
-                    <ul class="mb-4 space-y-2">
+                <!-- Quick Actions / Logs -->
+                <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-6">System Logs</h3>
+                    <div class="bg-slate-900 text-green-400 font-mono text-xs p-4 rounded-xl h-[300px] overflow-y-auto" id="console-logs">
+                        <p class="opacity-50">> System initialized...</p>
+                        <p class="opacity-50">> Waiting for connection...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Groups -->
+        <div id="tab-groups" class="tab-content hidden fade-in">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Managed Groups</h2>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-800 font-semibold uppercase text-xs border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4">Group Name</th>
+                                <th class="px-6 py-4">Members</th>
+                                <th class="px-6 py-4">Group ID</th>
+                                <th class="px-6 py-4 text-right">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <% if (groups.length === 0) { %>
+                                <tr>
+                                    <td colspan="4" class="px-6 py-8 text-center text-slate-400">
+                                        No groups found or bot is not connected.
+                                    </td>
+                                </tr>
+                            <% } %>
+                            <% groups.forEach(group => { %>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 font-medium text-slate-800"><%= group.subject %></td>
+                                    <td class="px-6 py-4"><%= group.size %> participants</td>
+                                    <td class="px-6 py-4 font-mono text-xs text-slate-400"><%= group.id %></td>
+                                    <td class="px-6 py-4 text-right">
+                                        <form action="/api/groups/leave" method="POST" onsubmit="return confirm('Are you sure you want to leave this group?');">
+                                            <input type="hidden" name="jid" value="<%= group.id %>">
+                                            <button type="submit" class="text-red-500 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
+                                                Leave
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Chats -->
+        <div id="tab-chats" class="tab-content hidden fade-in">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Private Chats</h2>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-800 font-semibold uppercase text-xs border-b border-slate-100">
+                            <tr>
+                                <th class="px-6 py-4">User JID</th>
+                                <th class="px-6 py-4">Status</th>
+                                <th class="px-6 py-4 text-right">Last Interaction</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <% if (chats.length === 0) { %>
+                                <tr>
+                                    <td colspan="3" class="px-6 py-8 text-center text-slate-400">
+                                        No chat history found.
+                                    </td>
+                                </tr>
+                            <% } %>
+                            <% chats.forEach(chat => { %>
+                                <tr class="hover:bg-slate-50 transition-colors">
+                                    <td class="px-6 py-4 font-mono text-slate-700"><%= chat.jid.split('@')[0] %></td>
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                            Active
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right text-slate-400 text-xs">
+                                        ID: <%= chat.id %>
+                                    </td>
+                                </tr>
+                            <% }) %>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab: Settings -->
+        <div id="tab-settings" class="tab-content hidden fade-in">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Bot Configuration</h2>
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-8 max-w-4xl">
+                <form action="/api/config" method="POST" class="space-y-8">
+                    <!-- Basic Info -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Bot Name</label>
+                            <input type="text" name="bot_name" value="<%= config.bot_name || 'MyBot' %>" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Command Prefix</label>
+                            <input type="text" name="prefix" value="<%= config.prefix || '/' %>" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition" placeholder="/">
+                        </div>
+                    </div>
+
+                    <!-- Scopes -->
+                    <div class="border-t border-slate-100 pt-6">
+                        <label class="block text-sm font-bold text-slate-700 mb-4">Active Scope (Where should the bot work?)</label>
+                        <div class="flex flex-wrap gap-4">
+                            <label class="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                                <input type="checkbox" name="enable_pm" <%= config.enable_pm ? 'checked' : '' %> class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-slate-700 font-medium">Private Message</span>
+                            </label>
+                            <label class="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                                <input type="checkbox" name="enable_group" <%= config.enable_group ? 'checked' : '' %> class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-slate-700 font-medium">Groups</span>
+                            </label>
+                            <label class="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:bg-slate-100 transition">
+                                <input type="checkbox" name="enable_newsletter" <%= config.enable_newsletter ? 'checked' : '' %> class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                                <span class="text-slate-700 font-medium">Channels</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- AI Config -->
+                    <div class="border-t border-slate-100 pt-6">
+                        <div class="flex items-center justify-between mb-4">
+                            <label class="text-lg font-bold text-slate-800">AI Integration</label>
+                            <label class="flex items-center cursor-pointer">
+                                <div class="relative">
+                                    <input type="checkbox" name="global_ai_mode" <%= config.global_ai_mode ? 'checked' : '' %> class="sr-only">
+                                    <div class="block bg-slate-200 w-12 h-7 rounded-full"></div>
+                                    <div class="dot absolute left-1 top-1 bg-white w-5 h-5 rounded-full transition <%= config.global_ai_mode ? 'transform translate-x-5' : '' %>"></div>
+                                </div>
+                                <div class="ml-3 text-slate-700 font-medium">Global AI Mode</div>
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Provider</label>
+                                <select name="ai_provider" id="aiProviderSelect" class="w-full border border-slate-300 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                                    <option value="gemini" <%= config.ai_provider === 'gemini' ? 'selected' : '' %>>Google Gemini</option>
+                                    <option value="groq" <%= config.ai_provider === 'groq' ? 'selected' : '' %>>Groq (Llama/Mixtral)</option>
+                                </select>
+                            </div>
+                            
+                            <!-- Gemini Models -->
+                            <div id="gemini-group" class="<%= config.ai_provider === 'gemini' ? '' : 'hidden' %>">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-sm font-bold text-slate-700">Model</label>
+                                    <button type="button" onclick="fetchModels('gemini')" class="text-xs text-blue-600 hover:text-blue-800 font-bold">Refresh List</button>
+                                </div>
+                                <select name="gemini_model" id="gemini_model" class="w-full border border-slate-300 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                                    <option value="<%= config.gemini_model %>" selected><%= config.gemini_model %></option>
+                                </select>
+                            </div>
+
+                            <!-- Groq Models -->
+                            <div id="groq-group" class="<%= config.ai_provider === 'groq' ? '' : 'hidden' %>">
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-sm font-bold text-slate-700">Model</label>
+                                    <button type="button" onclick="fetchModels('groq')" class="text-xs text-blue-600 hover:text-blue-800 font-bold">Refresh List</button>
+                                </div>
+                                <select name="groq_model" id="groq_model" class="w-full border border-slate-300 rounded-xl px-4 py-3 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition">
+                                    <option value="<%= config.groq_model %>" selected><%= config.groq_model %></option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Gemini API Key</label>
+                                <input type="password" name="gemini_api_key" value="<%= config.gemini_api_key || '' %>" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Groq API Key</label>
+                                <input type="password" name="groq_api_key" value="<%= config.groq_api_key || '' %>" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">System Prompt</label>
+                                <textarea name="system_prompt" rows="4" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm leading-relaxed" placeholder="You are a helpful assistant..."><%= config.system_prompt || '' %></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Games -->
+                    <div class="border-t border-slate-100 pt-6">
+                        <label class="flex items-center gap-3">
+                            <input type="checkbox" name="enable_games" <%= config.enable_games ? 'checked' : '' %> class="w-5 h-5 text-purple-600 rounded focus:ring-purple-500">
+                            <span class="text-slate-700 font-bold">Enable Games Module</span>
+                        </label>
+                    </div>
+
+                    <div class="pt-4">
+                        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-200 transition-all transform hover:-translate-y-1">
+                            Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Tab: Owners -->
+        <div id="tab-owners" class="tab-content hidden fade-in">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Owner Management</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Add Owner</h3>
+                    <form action="/api/owner/add" method="POST" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Name</label>
+                            <input type="text" name="name" placeholder="John Doe" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">Phone Number</label>
+                            <input type="text" name="phone" placeholder="628123456789" class="w-full border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono">
+                            <p class="text-xs text-slate-400 mt-1">Include country code (e.g., 62 for Indonesia).</p>
+                        </div>
+                        <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-3 rounded-xl transition">
+                            Add Owner
+                        </button>
+                    </form>
+                </div>
+
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">Current Owners</h3>
+                    <ul class="space-y-3">
+                        <% if (owners.length === 0) { %>
+                            <li class="text-slate-400 text-center py-4">No owners configured.</li>
+                        <% } %>
                         <% owners.forEach(owner => { %>
-                            <li class="flex justify-between items-center bg-gray-50 p-2 rounded">
-                                <span><%= owner.name %> (<%= owner.phone %>)</span>
-                                <form action="/api/owner/delete" method="POST" class="inline">
+                            <li class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <div>
+                                    <p class="font-bold text-slate-800"><%= owner.name %></p>
+                                    <p class="text-sm text-slate-500 font-mono"><%= owner.phone %></p>
+                                </div>
+                                <form action="/api/owner/delete" method="POST" onsubmit="return confirm('Remove this owner?');">
                                     <input type="hidden" name="id" value="<%= owner.id %>">
-                                    <button type="submit" class="text-red-500 hover:text-red-700">×</button>
+                                    <button type="submit" class="w-8 h-8 flex items-center justify-center bg-white text-red-500 rounded-lg shadow-sm hover:bg-red-50 transition">
+                                        <i class="fas fa-trash-alt text-sm"></i>
+                                    </button>
                                 </form>
                             </li>
                         <% }) %>
                     </ul>
-                    <form action="/api/owner/add" method="POST" class="flex gap-2">
-                        <input type="text" name="name" placeholder="Name" class="border rounded px-2 py-1 flex-1">
-                        <input type="text" name="phone" placeholder="Phone (e.g. 628xxx)" class="border rounded px-2 py-1 flex-1">
-                        <button type="submit" class="bg-blue-500 text-white px-4 py-1 rounded">Add</button>
-                    </form>
                 </div>
             </div>
-
-            <!-- Right Column: Config -->
-            <div class="bg-white p-6 rounded-lg shadow-md">
-                <h2 class="text-xl font-semibold mb-4">Configuration</h2>
-                <form action="/api/config" method="POST" class="space-y-4">
-                    <div>
-                        <label class="block text-gray-700 mb-1">Bot Name</label>
-                        <input type="text" name="bot_name" value="<%= config.bot_name || 'MyBot' %>" class="w-full border rounded px-3 py-2">
-                    </div>
-
-                    <div>
-                        <label class="block text-gray-700 mb-1">Bot Prefix</label>
-                        <input type="text" name="prefix" value="<%= config.prefix || '/' %>" class="w-full border rounded px-3 py-2" placeholder="/">
-                        <p class="text-xs text-gray-500 mt-1">Simbol awalan command (contoh: / atau ! atau .)</p>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="global_ai_mode" name="global_ai_mode" <%= config.global_ai_mode ? 'checked' : '' %> class="w-5 h-5 text-blue-600">
-                        <label for="global_ai_mode" class="text-gray-700">Enable AI Globally</label>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-gray-700 mb-1">AI Provider</label>
-                            <select name="ai_provider" class="w-full border rounded px-3 py-2">
-                                <option value="gemini" <%= config.ai_provider === 'gemini' ? 'selected' : '' %>>Google Gemini</option>
-                                <option value="groq" <%= config.ai_provider === 'groq' ? 'selected' : '' %>>Groq</option>
-                            </select>
-                        </div>
-                        <div id="gemini-group" class="<%= config.ai_provider === 'gemini' ? '' : 'hidden' %>">
-                            <div class="flex justify-between items-center mb-1">
-                                <label class="block text-gray-700 font-medium">Gemini Model</label>
-                                <button type="button" onclick="fetchModels('gemini')" class="text-xs text-blue-600 hover:underline">Refresh Models</button>
-                            </div>
-                            <select name="gemini_model" id="gemini_model" class="w-full border rounded px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-                                <option value="<%= config.gemini_model %>" selected><%= config.gemini_model %></option>
-                            </select>
-                        </div>
-                        <div id="groq-group" class="md:col-start-2 <%= config.ai_provider === 'groq' ? '' : 'hidden' %>">
-                             <div class="flex justify-between items-center mb-1">
-                                <label class="block text-gray-700 font-medium">Groq Model</label>
-                                <button type="button" onclick="fetchModels('groq')" class="text-xs text-blue-600 hover:underline">Refresh Models</button>
-                            </div>
-                            <select name="groq_model" id="groq_model" class="w-full border rounded px-3 py-2 bg-white focus:ring-2 focus:ring-blue-500 outline-none transition">
-                                <option value="<%= config.groq_model %>" selected><%= config.groq_model %></option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="border-t pt-4">
-                        <label class="block text-gray-700 font-bold mb-2">Bot Scope (Aktif di mana?)</label>
-                        <div class="flex flex-wrap gap-4">
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="enable_pm" name="enable_pm" <%= config.enable_pm ? 'checked' : '' %> class="w-5 h-5 text-green-600">
-                                <label for="enable_pm" class="text-gray-700 text-sm">Private Message</label>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="enable_group" name="enable_group" <%= config.enable_group ? 'checked' : '' %> class="w-5 h-5 text-green-600">
-                                <label for="enable_group" class="text-gray-700 text-sm">Groups</label>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" id="enable_newsletter" name="enable_newsletter" <%= config.enable_newsletter ? 'checked' : '' %> class="w-5 h-5 text-green-600">
-                                <label for="enable_newsletter" class="text-gray-700 text-sm">Channels</label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" id="enable_games" name="enable_games" <%= config.enable_games ? 'checked' : '' %> class="w-5 h-5 text-purple-600">
-                        <label for="enable_games" class="text-gray-700">Enable Games Globally</label>
-                    </div>
-
-                    <div>
-                        <label class="block text-gray-700 mb-1">Gemini API Key</label>
-                        <input type="password" name="gemini_api_key" value="<%= config.gemini_api_key || '' %>" class="w-full border rounded px-3 py-2">
-                    </div>
-
-                    <div>
-                        <label class="block text-gray-700 mb-1">Groq API Key</label>
-                        <input type="password" name="groq_api_key" value="<%= config.groq_api_key || '' %>" class="w-full border rounded px-3 py-2">
-                    </div>
-
-                    <div>
-                        <label class="block text-gray-700 mb-1">System Prompt</label>
-                        <textarea name="system_prompt" rows="4" class="w-full border rounded px-3 py-2"><%= config.system_prompt || '' %></textarea>
-                    </div>
-
-                    <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded">Save Configuration</button>
-                </form>
-            </div>
-
         </div>
-    </div>
+
+    </main>
 
     <script>
+        // --- Tabs Logic ---
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Show selected
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            
+            // Update Sidebar
+            document.querySelectorAll('.nav-item').forEach(el => {
+                el.classList.remove('bg-blue-50', 'text-blue-600', 'font-semibold');
+                el.classList.add('text-slate-600');
+            });
+            // Highlight current
+            const activeBtn = document.querySelector(`button[onclick="switchTab('${tabName}')"]`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-blue-50', 'text-blue-600', 'font-semibold');
+                activeBtn.classList.remove('text-slate-600');
+            }
+            
+            // Persist (optional)
+            const url = new URL(window.location);
+            url.searchParams.set('tab', tabName);
+            window.history.pushState({}, '', url);
+        }
+
+        // Handle URL Params on Load
+        window.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            const tab = params.get('tab') || 'dashboard';
+            switchTab(tab);
+            
+            // Date
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        });
+
+        // --- Mobile Menu ---
+        const sidebar = document.getElementById('sidebar');
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        let isMenuOpen = false;
+
+        mobileMenuBtn.addEventListener('click', () => {
+            isMenuOpen = !isMenuOpen;
+            if (isMenuOpen) {
+                sidebar.classList.remove('-translate-x-full');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+            }
+        });
+
+        // --- Socket.io Logic ---
         const socket = io();
         const loadingState = document.getElementById('loading-state');
         const qrContainer = document.getElementById('qr-container');
         const qrcodeDiv = document.getElementById('qrcode');
-        const statusBadge = document.getElementById('status-badge');
         const userInfo = document.getElementById('user-info');
         const userJid = document.getElementById('user-jid');
+        const connectionStatusMini = document.getElementById('connection-status-mini');
+        const consoleLogs = document.getElementById('console-logs');
+
+        function log(msg) {
+            const p = document.createElement('p');
+            p.textContent = `> ${msg}`;
+            p.className = 'opacity-80';
+            consoleLogs.appendChild(p);
+            consoleLogs.scrollTop = consoleLogs.scrollHeight;
+        }
 
         socket.on('status', (data) => {
-            console.log('Status Update:', data);
+            console.log('Status:', data);
             
-            statusBadge.textContent = data.status;
-            
+            // Update Mini Badge
             if (data.status === 'Connected') {
-                statusBadge.className = 'px-4 py-2 rounded-full text-white font-bold bg-green-500';
+                connectionStatusMini.className = 'flex items-center gap-3 px-4 py-3 bg-green-50 text-green-600 rounded-xl';
+                connectionStatusMini.innerHTML = '<div class="w-2 h-2 rounded-full bg-green-500"></div><span class="text-sm font-medium">Online</span>';
+                
                 loadingState.classList.add('hidden');
                 qrContainer.classList.add('hidden');
                 userInfo.classList.remove('hidden');
                 if (data.user) {
-                    userJid.textContent = data.user.id.split(':')[0] + '@s.whatsapp.net';
+                    userJid.textContent = data.user.id.split(':')[0];
                 }
+                log('Bot connected successfully.');
             } else if (data.status === 'QR_RECEIVED') {
-                statusBadge.textContent = 'Scan QR';
-                statusBadge.className = 'px-4 py-2 rounded-full text-white font-bold bg-purple-500';
+                connectionStatusMini.className = 'flex items-center gap-3 px-4 py-3 bg-yellow-50 text-yellow-600 rounded-xl';
+                connectionStatusMini.innerHTML = '<div class="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div><span class="text-sm font-medium">Scan QR</span>';
+
                 loadingState.classList.add('hidden');
                 userInfo.classList.add('hidden');
                 qrContainer.classList.remove('hidden');
+                log('QR Code received. Waiting for scan...');
             } else if (data.status === 'Connecting') {
-                statusBadge.className = 'px-4 py-2 rounded-full text-white font-bold bg-yellow-500';
+                connectionStatusMini.className = 'flex items-center gap-3 px-4 py-3 bg-blue-50 text-blue-600 rounded-xl';
+                connectionStatusMini.innerHTML = '<div class="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div><span class="text-sm font-medium">Connecting</span>';
+                
                 loadingState.classList.remove('hidden');
-                loadingState.innerHTML = '<p class="animate-pulse">Connecting to WhatsApp...</p>';
                 qrContainer.classList.add('hidden');
                 userInfo.classList.add('hidden');
+                log('Connecting to WhatsApp servers...');
             } else {
-                statusBadge.className = 'px-4 py-2 rounded-full text-white font-bold bg-red-500';
+                connectionStatusMini.className = 'flex items-center gap-3 px-4 py-3 bg-red-50 text-red-600 rounded-xl';
+                connectionStatusMini.innerHTML = '<div class="w-2 h-2 rounded-full bg-red-500"></div><span class="text-sm font-medium">Offline</span>';
+                
                 loadingState.classList.remove('hidden');
-                loadingState.innerHTML = `<p>Status: ${data.status}</p><p class="text-xs text-red-400">${data.reason || ''}</p>`;
                 qrContainer.classList.add('hidden');
                 userInfo.classList.add('hidden');
+                log(`Disconnected: ${data.reason || 'Unknown error'}`);
             }
         });
 
         socket.on('qr', (qr) => {
-            console.log('QR Received via Socket');
             loadingState.classList.add('hidden');
             userInfo.classList.add('hidden');
             qrContainer.classList.remove('hidden');
@@ -214,28 +528,30 @@
             qrcodeDiv.innerHTML = '';
             new QRCode(qrcodeDiv, {
                 text: qr,
-                width: 256,
-                height: 256,
-                correctLevel: QRCode.CorrectLevel.H
+                width: 200,
+                height: 200,
+                correctLevel: QRCode.CorrectLevel.M
             });
+            log('New QR Code generated.');
         });
 
-        // Provider Toggle
-        const aiProviderSelect = document.querySelector('select[name="ai_provider"]');
+        // --- Provider Toggle ---
+        const aiProviderSelect = document.getElementById('aiProviderSelect');
         const geminiGroup = document.getElementById('gemini-group');
         const groqGroup = document.getElementById('groq-group');
 
-        aiProviderSelect.addEventListener('change', (e) => {
-            if (e.target.value === 'gemini') {
-                geminiGroup.classList.remove('hidden');
-                groqGroup.classList.add('hidden');
-            } else {
-                geminiGroup.classList.add('hidden');
-                groqGroup.classList.remove('hidden');
-            }
-        });
+        if(aiProviderSelect) {
+            aiProviderSelect.addEventListener('change', (e) => {
+                if (e.target.value === 'gemini') {
+                    geminiGroup.classList.remove('hidden');
+                    groqGroup.classList.add('hidden');
+                } else {
+                    geminiGroup.classList.add('hidden');
+                    groqGroup.classList.remove('hidden');
+                }
+            });
+        }
 
-        // Dynamic Model Fetcher
         async function fetchModels(provider) {
             const select = document.getElementById(`${provider}_model`);
             const btn = select.previousElementSibling.querySelector('button');
@@ -259,15 +575,15 @@
                 data.models.forEach(model => {
                     const option = document.createElement('option');
                     option.value = model.id;
-                    option.textContent = `${model.name} ${model.tools ? '🛠️' : ''}`;
+                    option.textContent = model.name;
                     if (model.id === currentVal) option.selected = true;
                     select.appendChild(option);
                 });
                 
-                // If nothing selected, select first
                 if (!select.value && data.models.length > 0) {
                     select.value = data.models[0].id;
                 }
+                log(`Fetched ${data.models.length} models for ${provider}.`);
 
             } catch (error) {
                 console.error(error);
@@ -277,10 +593,6 @@
                 btn.disabled = false;
             }
         }
-
-        // Auto fetch on load if empty (optional, but good for UX)
-        // fetchModels('gemini');
-        // fetchModels('groq');
     </script>
 </body>
 </html>
